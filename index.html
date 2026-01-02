@@ -1,0 +1,499 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Tables de multiplication</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin: 0; background:#0b1020; color:#eaf0ff; }
+    .wrap { max-width: 820px; margin: 0 auto; padding: 18px; }
+    .card { background: rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); border-radius:16px; padding: 16px; }
+    h1 { font-size: 22px; margin: 0 0 10px; }
+    h2 { font-size: 18px; margin: 0 0 10px; opacity:.95; }
+    label { display:block; margin: 10px 0 6px; opacity:.95; }
+    select, input[type="number"], input[type="text"] {
+      width: 100%; padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,.18);
+      background: rgba(0,0,0,.25); color:#eaf0ff; outline:none;
+    }
+    .row { display:flex; gap: 12px; flex-wrap: wrap; }
+    .row > div { flex: 1; min-width: 200px; }
+    button {
+      padding: 10px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,.2);
+      background: rgba(255,255,255,.12); color:#eaf0ff; cursor:pointer; font-weight:600;
+    }
+    button.primary { background: #3b82f6; border-color: #3b82f6; }
+    button:disabled { opacity:.5; cursor:not-allowed; }
+    .hud { display:flex; gap: 10px; flex-wrap: wrap; margin: 10px 0; }
+    .pill { padding: 8px 10px; border-radius: 999px; background: rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.12); }
+    .question { font-size: 42px; font-weight: 800; letter-spacing: .5px; margin: 10px 0; }
+    .choices { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .ok { color:#22c55e; font-weight:700; }
+    .ko { color:#ef4444; font-weight:700; }
+    .small { opacity:.85; font-size: 13px; line-height: 1.35; }
+    .hidden { display:none; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ACCUEIL -->
+  <div id="screen-setup" class="card">
+    <h1>Réviser les multiplications</h1>
+    <div class="small">Mode QCM ou réponse libre, timer, points, et niveaux jusqu’aux multiplicateurs à 2–3 chiffres.</div>
+
+    <div class="row" style="margin-top:12px;">
+      <div>
+        <label>Niveau</label>
+        <select id="level">
+          <option value="1">N1 — Tables (2..10) × (0..10)</option>
+          <option value="2">N2 — Extensions (2..12) × (0..12)</option>
+          <option value="3">N3 — 2 chiffres × 1 chiffre</option>
+          <option value="4">N4 — 2 chiffres × 2 chiffres</option>
+          <option value="5">N5 — 3 chiffres × 1–2 chiffres</option>
+        </select>
+      </div>
+      <div>
+        <label>Mode</label>
+        <select id="mode">
+          <option value="mcq">QCM (4 choix)</option>
+          <option value="input">Réponse libre</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label>Temps par question (secondes)</label>
+        <input id="secondsPerQ" type="number" min="3" max="30" value="10" />
+      </div>
+      <div>
+        <label>Nombre de questions</label>
+        <input id="questionCount" type="number" min="5" max="100" value="15" />
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label>Extensions aléatoires (au-delà de 10)</label>
+        <select id="extensions">
+          <option value="0">Non</option>
+          <option value="20">Oui — 20% des questions</option>
+          <option value="40">Oui — 40% des questions</option>
+        </select>
+      </div>
+      <div>
+        <label>Taille max des multiplicateurs en extension</label>
+        <select id="extSize">
+          <option value="12">Jusqu’à 12</option>
+          <option value="20">Jusqu’à 20</option>
+          <option value="99">Jusqu’à 2 chiffres (99)</option>
+          <option value="999">Jusqu’à 3 chiffres (999)</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="margin-top: 14px; display:flex; gap:10px; flex-wrap:wrap;">
+      <button class="primary" id="startBtn">Démarrer</button>
+      <button id="resetBestBtn">Réinitialiser meilleur score</button>
+    </div>
+
+    <div id="bestLine" class="small" style="margin-top:10px;"></div>
+  </div>
+
+  <!-- JEU -->
+  <div id="screen-game" class="card hidden">
+    <div class="hud">
+      <div class="pill">Question: <span id="qIndex">1</span>/<span id="qTotal">15</span></div>
+      <div class="pill">⏱️ <span id="timeLeft">10</span>s</div>
+      <div class="pill">Score: <span id="score">0</span></div>
+      <div class="pill">Série: <span id="streak">0</span></div>
+    </div>
+
+    <div class="question" id="questionText">8 × 7 = ?</div>
+
+    <div id="mcqBox" class="choices"></div>
+
+    <div id="inputBox" class="hidden">
+      <label>Ta réponse</label>
+      <input id="answerInput" type="text" inputmode="numeric" placeholder="Tape le résultat" />
+      <div style="margin-top:10px; display:flex; gap:10px;">
+        <button class="primary" id="validateBtn">Valider</button>
+        <button id="skipBtn">Passer</button>
+      </div>
+    </div>
+
+    <div id="feedback" style="margin-top:12px; min-height: 22px;"></div>
+    <div style="margin-top:12px; display:flex; gap:10px;">
+      <button id="nextBtn" class="primary" disabled>Suivant</button>
+      <button id="quitBtn">Quitter</button>
+    </div>
+  </div>
+
+  <!-- FIN -->
+  <div id="screen-end" class="card hidden">
+    <h2>Résultat</h2>
+    <div id="summary" style="margin: 10px 0;"></div>
+    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+      <button class="primary" id="replayBtn">Rejouer</button>
+      <button id="backBtn">Retour réglages</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(() => {
+  // --- Elements
+  const setup = document.getElementById('screen-setup');
+  const game  = document.getElementById('screen-game');
+  const end   = document.getElementById('screen-end');
+
+  const levelEl = document.getElementById('level');
+  const modeEl  = document.getElementById('mode');
+  const secondsPerQEl = document.getElementById('secondsPerQ');
+  const questionCountEl = document.getElementById('questionCount');
+  const extensionsEl = document.getElementById('extensions');
+  const extSizeEl = document.getElementById('extSize');
+
+  const startBtn = document.getElementById('startBtn');
+  const resetBestBtn = document.getElementById('resetBestBtn');
+
+  const qIndexEl = document.getElementById('qIndex');
+  const qTotalEl = document.getElementById('qTotal');
+  const timeLeftEl = document.getElementById('timeLeft');
+  const scoreEl = document.getElementById('score');
+  const streakEl = document.getElementById('streak');
+
+  const questionText = document.getElementById('questionText');
+  const mcqBox = document.getElementById('mcqBox');
+  const inputBox = document.getElementById('inputBox');
+  const answerInput = document.getElementById('answerInput');
+  const validateBtn = document.getElementById('validateBtn');
+  const skipBtn = document.getElementById('skipBtn');
+
+  const feedback = document.getElementById('feedback');
+  const nextBtn = document.getElementById('nextBtn');
+  const quitBtn = document.getElementById('quitBtn');
+
+  const summary = document.getElementById('summary');
+  const replayBtn = document.getElementById('replayBtn');
+  const backBtn = document.getElementById('backBtn');
+
+  const bestLine = document.getElementById('bestLine');
+
+  // --- State
+  let cfg = {};
+  let timer = null;
+  let timeLeft = 0;
+
+  let current = null; // {a,b,answer,choices[]}
+  let qIndex = 0;
+  let score = 0;
+  let streak = 0;
+  let correctCount = 0;
+  let bestStreak = 0;
+  let history = []; // to avoid repeats
+
+  const BEST_KEY = 'mul_best_score_v1';
+
+  function showBest() {
+    const best = Number(localStorage.getItem(BEST_KEY) || 0);
+    bestLine.textContent = `Meilleur score enregistré sur cet appareil : ${best}`;
+  }
+
+  function clampInt(v, min, max, fallback) {
+    const n = parseInt(v, 10);
+    if (Number.isNaN(n)) return fallback;
+    return Math.max(min, Math.min(max, n));
+  }
+
+  function levelMultiplier(lvl) {
+    return ({1:1, 2:1.2, 3:1.5, 4:2, 5:2.5})[lvl] || 1;
+  }
+
+  function randInt(min, max) { // inclusive
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+
+  function maybeUseExtension() {
+    const pct = Number(cfg.extensionsPct);
+    if (!pct) return false;
+    return (Math.random() * 100) < pct;
+  }
+
+  function pickAB() {
+    const lvl = cfg.level;
+    const useExt = maybeUseExtension();
+    const extMax = cfg.extMax;
+
+    // Base ranges per level
+    let aMin, aMax, bMin, bMax;
+
+    if (lvl === 1) { aMin = 2; aMax = 10; bMin = 0; bMax = 10; }
+    if (lvl === 2) { aMin = 2; aMax = 12; bMin = 0; bMax = 12; }
+    if (lvl === 3) { aMin = 10; aMax = 99; bMin = 2; bMax = 12; }
+    if (lvl === 4) { aMin = 10; aMax = 99; bMin = 10; bMax = 99; }
+    if (lvl === 5) { aMin = 100; aMax = 999; bMin = 2; bMax = 99; }
+
+    // Extension logic: expand one of the operands occasionally
+    let a = randInt(aMin, aMax);
+    let b = randInt(bMin, bMax);
+
+    if (useExt) {
+      // On “pousse” plutôt B, mais parfois A
+      if (Math.random() < 0.75) {
+        b = randInt(11, extMax);
+      } else {
+        a = randInt(Math.min(11, aMax), extMax);
+      }
+    }
+
+    // Avoid too huge computations for young kids if lvl 1–2:
+    if (lvl <= 2) {
+      a = Math.min(a, extMax);
+      b = Math.min(b, extMax);
+    }
+
+    return { a, b };
+  }
+
+  function sameAsRecent(a, b) {
+    const key = `${a}x${b}`;
+    return history.includes(key);
+  }
+
+  function pushHistory(a, b) {
+    const key = `${a}x${b}`;
+    history.push(key);
+    if (history.length > 10) history.shift();
+  }
+
+  function buildChoices(answer, a, b) {
+    const set = new Set([answer]);
+    const candidates = [
+      answer + 1, answer - 1, answer + 2, answer - 2,
+      answer + 10, answer - 10,
+      a * (b + 1), a * (b - 1),
+      (a + 1) * b, (a - 1) * b,
+      Math.round(answer * 1.1), Math.round(answer * 0.9)
+    ].filter(x => Number.isFinite(x) && x >= 0);
+
+    while (set.size < 4) {
+      if (candidates.length) {
+        const x = candidates.splice(randInt(0, candidates.length - 1), 1)[0];
+        set.add(x);
+      } else {
+        set.add(answer + randInt(-15, 15));
+      }
+    }
+
+    const arr = Array.from(set);
+    // shuffle
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  function newQuestion() {
+    nextBtn.disabled = true;
+    feedback.textContent = '';
+
+    let tries = 0;
+    let a, b;
+    do {
+      const ab = pickAB();
+      a = ab.a; b = ab.b;
+      tries++;
+    } while (sameAsRecent(a, b) && tries < 8);
+
+    pushHistory(a, b);
+
+    const answer = a * b;
+    current = { a, b, answer, choices: buildChoices(answer, a, b) };
+
+    questionText.textContent = `${a} × ${b} = ?`;
+
+    // Render mode
+    if (cfg.mode === 'mcq') {
+      mcqBox.classList.remove('hidden');
+      inputBox.classList.add('hidden');
+      mcqBox.innerHTML = '';
+      current.choices.forEach(val => {
+        const btn = document.createElement('button');
+        btn.textContent = val;
+        btn.onclick = () => submitAnswer(val);
+        mcqBox.appendChild(btn);
+      });
+    } else {
+      mcqBox.classList.add('hidden');
+      inputBox.classList.remove('hidden');
+      answerInput.value = '';
+      answerInput.focus();
+    }
+
+    // Start timer
+    startTimer();
+  }
+
+  function startTimer() {
+    clearInterval(timer);
+    timeLeft = cfg.secondsPerQ;
+    timeLeftEl.textContent = timeLeft;
+
+    timer = setInterval(() => {
+      timeLeft--;
+      timeLeftEl.textContent = timeLeft;
+      if (timeLeft <= 0) {
+        clearInterval(timer);
+        submitAnswer(null, true); // timed out
+      }
+    }, 1000);
+  }
+
+  function computePoints(isCorrect) {
+    const base = 10;
+    const speedBonus = Math.max(0, timeLeft); // remaining seconds
+    const mult = levelMultiplier(cfg.level);
+    let pts = (base + speedBonus) * mult;
+
+    // combo bonus
+    if (isCorrect && streak > 0 && streak % 3 === 0) pts += 5 * mult;
+
+    return Math.round(pts);
+  }
+
+  function submitAnswer(value, timedOut=false) {
+    // Prevent double submit
+    if (!current) return;
+    clearInterval(timer);
+
+    const correct = (value === current.answer);
+    if (correct) {
+      streak++;
+      bestStreak = Math.max(bestStreak, streak);
+      correctCount++;
+      const pts = computePoints(true);
+      score += pts;
+      feedback.innerHTML = `<span class="ok">✅ Bravo !</span> +${pts} points`;
+    } else {
+      streak = 0;
+      const penalty = Math.round(3 * levelMultiplier(cfg.level));
+      score = Math.max(0, score - penalty);
+      const reason = timedOut ? "Temps écoulé" : "Oups";
+      feedback.innerHTML = `<span class="ko">❌ ${reason}.</span> Bonne réponse : <b>${current.answer}</b> (-${penalty})`;
+    }
+
+    scoreEl.textContent = score;
+    streakEl.textContent = streak;
+
+    // disable mcq buttons
+    Array.from(mcqBox.querySelectorAll('button')).forEach(b => b.disabled = true);
+
+    current = current; // keep for display
+    nextBtn.disabled = false;
+  }
+
+  function next() {
+    qIndex++;
+    qIndexEl.textContent = qIndex;
+    if (qIndex > cfg.totalQuestions) {
+      finish();
+      return;
+    }
+    newQuestion();
+  }
+
+  function finish() {
+    clearInterval(timer);
+    setup.classList.add('hidden');
+    game.classList.add('hidden');
+    end.classList.remove('hidden');
+
+    const accuracy = Math.round((correctCount / cfg.totalQuestions) * 100);
+    summary.innerHTML = `
+      <div class="pill">Score final : <b>${score}</b></div><br/>
+      <div class="pill">Bonnes réponses : <b>${correctCount}</b> / ${cfg.totalQuestions} (${accuracy}%)</div><br/>
+      <div class="pill">Meilleure série : <b>${bestStreak}</b></div>
+    `;
+
+    const best = Number(localStorage.getItem(BEST_KEY) || 0);
+    if (score > best) localStorage.setItem(BEST_KEY, String(score));
+    showBest();
+  }
+
+  function goSetup() {
+    clearInterval(timer);
+    setup.classList.remove('hidden');
+    game.classList.add('hidden');
+    end.classList.add('hidden');
+  }
+
+  function goGame() {
+    setup.classList.add('hidden');
+    game.classList.remove('hidden');
+    end.classList.add('hidden');
+  }
+
+  // --- Events
+  startBtn.onclick = () => {
+    cfg = {
+      level: Number(levelEl.value),
+      mode: modeEl.value,
+      secondsPerQ: clampInt(secondsPerQEl.value, 3, 30, 10),
+      totalQuestions: clampInt(questionCountEl.value, 5, 100, 15),
+      extensionsPct: Number(extensionsEl.value),
+      extMax: Number(extSizeEl.value)
+    };
+
+    // Reset session state
+    qIndex = 1;
+    score = 0;
+    streak = 0;
+    correctCount = 0;
+    bestStreak = 0;
+    history = [];
+
+    qTotalEl.textContent = cfg.totalQuestions;
+    qIndexEl.textContent = qIndex;
+    scoreEl.textContent = score;
+    streakEl.textContent = streak;
+
+    goGame();
+    newQuestion();
+  };
+
+  nextBtn.onclick = next;
+
+  validateBtn.onclick = () => {
+    const v = answerInput.value.trim();
+    const n = Number(v);
+    if (v === '' || Number.isNaN(n)) {
+      feedback.innerHTML = `<span class="ko">Entre un nombre 🙂</span>`;
+      return;
+    }
+    submitAnswer(n);
+  };
+
+  // Enter key to validate
+  answerInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') validateBtn.click();
+  });
+
+  skipBtn.onclick = () => submitAnswer(null);
+  quitBtn.onclick = goSetup;
+
+  replayBtn.onclick = () => startBtn.click();
+  backBtn.onclick = goSetup;
+
+  resetBestBtn.onclick = () => {
+    localStorage.removeItem(BEST_KEY);
+    showBest();
+  };
+
+  showBest();
+})();
+</script>
+</body>
+</html>
