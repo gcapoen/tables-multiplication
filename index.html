@@ -6,7 +6,7 @@
   <title>Tables de multiplication</title>
   <style>
     body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin: 0; background:#0b1020; color:#eaf0ff; }
-    .wrap { max-width: 820px; margin: 0 auto; padding: 18px; }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 18px; }
     .card { background: rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); border-radius:16px; padding: 16px; }
     h1 { font-size: 22px; margin: 0 0 10px; }
     h2 { font-size: 18px; margin: 0 0 10px; opacity:.95; }
@@ -16,12 +16,13 @@
       background: rgba(0,0,0,.25); color:#eaf0ff; outline:none;
     }
     .row { display:flex; gap: 12px; flex-wrap: wrap; }
-    .row > div { flex: 1; min-width: 200px; }
+    .row > div { flex: 1; min-width: 220px; }
     button {
       padding: 10px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,.2);
       background: rgba(255,255,255,.12); color:#eaf0ff; cursor:pointer; font-weight:600;
     }
     button.primary { background: #3b82f6; border-color: #3b82f6; }
+    button.danger { background: rgba(239,68,68,.25); border-color: rgba(239,68,68,.45); }
     button:disabled { opacity:.5; cursor:not-allowed; }
     .hud { display:flex; gap: 10px; flex-wrap: wrap; margin: 10px 0; }
     .pill { padding: 8px 10px; border-radius: 999px; background: rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.12); }
@@ -31,6 +32,22 @@
     .ko { color:#ef4444; font-weight:700; }
     .small { opacity:.85; font-size: 13px; line-height: 1.35; }
     .hidden { display:none; }
+    .divider { height:1px; background: rgba(255,255,255,.12); margin: 12px 0; }
+    .modeBox { display:flex; gap:10px; flex-wrap:wrap; }
+    .modeBox button { flex:1; min-width: 240px; }
+
+    table { width:100%; border-collapse: collapse; margin-top: 10px; overflow: hidden; border-radius: 12px; }
+    th, td { padding: 10px 10px; border-bottom: 1px solid rgba(255,255,255,.10); text-align: left; }
+    th { background: rgba(255,255,255,.08); }
+    tr:hover td { background: rgba(255,255,255,.04); }
+    .tag { display:inline-block; padding: 4px 8px; border: 1px solid rgba(255,255,255,.18); border-radius: 999px; font-size: 12px; opacity:.9; }
+
+    details { background: rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.10); border-radius: 12px; padding: 10px 12px; }
+    details + details { margin-top: 10px; }
+    summary { cursor: pointer; font-weight: 650; }
+    .right { float:right; opacity:.9; font-weight:600; }
+    .btnRow { display:flex; gap:10px; flex-wrap:wrap; margin-top: 10px; }
+    .muted { opacity:.8; }
   </style>
 </head>
 <body>
@@ -39,61 +56,52 @@
   <!-- ACCUEIL -->
   <div id="screen-setup" class="card">
     <h1>Réviser les multiplications</h1>
-    <div class="small">Mode QCM ou réponse libre, timer, points, et niveaux jusqu’aux multiplicateurs à 2–3 chiffres.</div>
+    <div class="small">
+      Tables 1→10 (option 1→20). Multiplicateurs ≤ 12.<br>
+      10s pour choisir le mode + 10s pour répondre. Points + multiplicateur de série.
+    </div>
 
     <div class="row" style="margin-top:12px;">
       <div>
-        <label>Niveau</label>
-        <select id="level">
-          <option value="1">N1 — Tables (2..10) × (0..10)</option>
-          <option value="2">N2 — Extensions (2..12) × (0..12)</option>
-          <option value="3">N3 — 2 chiffres × 1 chiffre</option>
-          <option value="4">N4 — 2 chiffres × 2 chiffres</option>
-          <option value="5">N5 — 3 chiffres × 1–2 chiffres</option>
+        <label>Mode de jeu</label>
+        <select id="gameMode">
+          <option value="finite">Série (nombre de questions)</option>
+          <option value="infinite">Infini (j’arrête quand je veux)</option>
         </select>
       </div>
-      <div>
-        <label>Mode</label>
-        <select id="mode">
-          <option value="mcq">QCM (4 choix)</option>
-          <option value="input">Réponse libre</option>
-        </select>
-      </div>
-    </div>
-
-    <div class="row">
-      <div>
-        <label>Temps par question (secondes)</label>
-        <input id="secondsPerQ" type="number" min="3" max="30" value="10" />
-      </div>
-      <div>
+      <div id="qcBox">
         <label>Nombre de questions</label>
-        <input id="questionCount" type="number" min="5" max="100" value="15" />
+        <input id="questionCount" type="number" min="5" max="200" value="20" />
       </div>
     </div>
 
     <div class="row">
       <div>
-        <label>Extensions aléatoires (au-delà de 10)</label>
-        <select id="extensions">
-          <option value="0">Non</option>
-          <option value="20">Oui — 20% des questions</option>
-          <option value="40">Oui — 40% des questions</option>
+        <label>Tables (valeur max)</label>
+        <select id="maxTable">
+          <option value="10">De 1 à 10</option>
+          <option value="20">De 1 à 20</option>
         </select>
       </div>
       <div>
-        <label>Taille max des multiplicateurs en extension</label>
-        <select id="extSize">
-          <option value="12">Jusqu’à 12</option>
-          <option value="20">Jusqu’à 20</option>
-          <option value="99">Jusqu’à 2 chiffres (99)</option>
-          <option value="999">Jusqu’à 3 chiffres (999)</option>
+        <label>Difficulté progressive</label>
+        <select id="adaptive">
+          <option value="on">Oui (s’adapte)</option>
+          <option value="off">Non (toujours jusqu’à 12)</option>
         </select>
       </div>
     </div>
 
-    <div style="margin-top: 14px; display:flex; gap:10px; flex-wrap:wrap;">
+    <div class="divider"></div>
+
+    <div class="small">
+      Règles : +2 (réponse écrite), +1 (QCM), -1 (mauvaise réponse ou temps).<br>
+      Multiplicateur : +1 toutes les 3 bonnes réponses d’affilée, reset à x1 si erreur.
+    </div>
+
+    <div class="btnRow">
       <button class="primary" id="startBtn">Démarrer</button>
+      <button id="historyBtn">Historique</button>
       <button id="resetBestBtn">Réinitialiser meilleur score</button>
     </div>
 
@@ -103,28 +111,39 @@
   <!-- JEU -->
   <div id="screen-game" class="card hidden">
     <div class="hud">
-      <div class="pill">Question: <span id="qIndex">1</span>/<span id="qTotal">15</span></div>
+      <div class="pill">Question: <span id="qIndex">1</span>/<span id="qTotal">20</span></div>
       <div class="pill">⏱️ <span id="timeLeft">10</span>s</div>
       <div class="pill">Score: <span id="score">0</span></div>
       <div class="pill">Série: <span id="streak">0</span></div>
+      <div class="pill">Multiplicateur: <span id="mult">x1</span></div>
+      <div class="pill">Difficulté: <span id="diffTag">1/3</span></div>
     </div>
 
+    <div id="phaseTitle" class="small">Choisis ton mode</div>
     <div class="question" id="questionText">8 × 7 = ?</div>
 
-    <div id="mcqBox" class="choices"></div>
+    <!-- PHASE CHOIX MODE -->
+    <div id="chooseModeBox" class="modeBox">
+      <button class="primary" id="chooseInputBtn">✍️ Réponse écrite (+2 pts)</button>
+      <button id="chooseMcqBtn">🧩 QCM 4 choix (+1 pt)</button>
+    </div>
+
+    <!-- PHASE REPONSE -->
+    <div id="mcqBox" class="choices hidden"></div>
 
     <div id="inputBox" class="hidden">
       <label>Ta réponse</label>
       <input id="answerInput" type="text" inputmode="numeric" placeholder="Tape le résultat" />
-      <div style="margin-top:10px; display:flex; gap:10px;">
+      <div class="btnRow">
         <button class="primary" id="validateBtn">Valider</button>
-        <button id="skipBtn">Passer</button>
+        <button class="danger" id="skipBtn">Je ne sais pas</button>
       </div>
     </div>
 
     <div id="feedback" style="margin-top:12px; min-height: 22px;"></div>
-    <div style="margin-top:12px; display:flex; gap:10px;">
+    <div class="btnRow">
       <button id="nextBtn" class="primary" disabled>Suivant</button>
+      <button id="stopBtn" class="danger hidden">Arrêter la série</button>
       <button id="quitBtn">Quitter</button>
     </div>
   </div>
@@ -133,10 +152,31 @@
   <div id="screen-end" class="card hidden">
     <h2>Résultat</h2>
     <div id="summary" style="margin: 10px 0;"></div>
-    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+
+    <div class="divider"></div>
+    <h2>Stats par table</h2>
+    <div class="small">Astuce : travaille d’abord les tables avec le plus faible % de réussite.</div>
+    <div id="statsTable"></div>
+
+    <div class="btnRow" style="margin-top: 14px;">
       <button class="primary" id="replayBtn">Rejouer</button>
+      <button id="endHistoryBtn">Voir historique</button>
       <button id="backBtn">Retour réglages</button>
     </div>
+  </div>
+
+  <!-- HISTORIQUE -->
+  <div id="screen-history" class="card hidden">
+    <h2>Historique</h2>
+    <div class="small muted">Les sessions sont enregistrées sur cet appareil (localStorage).</div>
+
+    <div class="btnRow" style="margin-top: 10px;">
+      <button class="primary" id="historyBackBtn">Retour</button>
+      <button class="danger" id="clearHistoryBtn">Effacer tout l’historique</button>
+    </div>
+
+    <div class="divider"></div>
+    <div id="historyList"></div>
   </div>
 
 </div>
@@ -147,15 +187,16 @@
   const setup = document.getElementById('screen-setup');
   const game  = document.getElementById('screen-game');
   const end   = document.getElementById('screen-end');
+  const historyScreen = document.getElementById('screen-history');
 
-  const levelEl = document.getElementById('level');
-  const modeEl  = document.getElementById('mode');
-  const secondsPerQEl = document.getElementById('secondsPerQ');
+  const gameModeEl = document.getElementById('gameMode');
+  const qcBox = document.getElementById('qcBox');
   const questionCountEl = document.getElementById('questionCount');
-  const extensionsEl = document.getElementById('extensions');
-  const extSizeEl = document.getElementById('extSize');
+  const maxTableEl = document.getElementById('maxTable');
+  const adaptiveEl = document.getElementById('adaptive');
 
   const startBtn = document.getElementById('startBtn');
+  const historyBtn = document.getElementById('historyBtn');
   const resetBestBtn = document.getElementById('resetBestBtn');
 
   const qIndexEl = document.getElementById('qIndex');
@@ -163,8 +204,16 @@
   const timeLeftEl = document.getElementById('timeLeft');
   const scoreEl = document.getElementById('score');
   const streakEl = document.getElementById('streak');
+  const multEl = document.getElementById('mult');
+  const diffTagEl = document.getElementById('diffTag');
 
+  const phaseTitle = document.getElementById('phaseTitle');
   const questionText = document.getElementById('questionText');
+
+  const chooseModeBox = document.getElementById('chooseModeBox');
+  const chooseInputBtn = document.getElementById('chooseInputBtn');
+  const chooseMcqBtn = document.getElementById('chooseMcqBtn');
+
   const mcqBox = document.getElementById('mcqBox');
   const inputBox = document.getElementById('inputBox');
   const answerInput = document.getElementById('answerInput');
@@ -173,28 +222,67 @@
 
   const feedback = document.getElementById('feedback');
   const nextBtn = document.getElementById('nextBtn');
+  const stopBtn = document.getElementById('stopBtn');
   const quitBtn = document.getElementById('quitBtn');
 
   const summary = document.getElementById('summary');
+  const statsTable = document.getElementById('statsTable');
   const replayBtn = document.getElementById('replayBtn');
+  const endHistoryBtn = document.getElementById('endHistoryBtn');
   const backBtn = document.getElementById('backBtn');
 
   const bestLine = document.getElementById('bestLine');
+
+  const historyBackBtn = document.getElementById('historyBackBtn');
+  const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+  const historyList = document.getElementById('historyList');
+
+  // --- Rules fixed by you
+  const CHOOSE_SECONDS = 10;
+  const ANSWER_SECONDS = 10;
+  const MAX_MULTIPLIER_OPERAND = 12;
 
   // --- State
   let cfg = {};
   let timer = null;
   let timeLeft = 0;
 
-  let current = null; // {a,b,answer,choices[]}
+  let phase = 'choose';
+  let current = null;
+  let selectedMode = null;
+
   let qIndex = 0;
   let score = 0;
   let streak = 0;
   let correctCount = 0;
   let bestStreak = 0;
-  let history = []; // to avoid repeats
+  let historyPairs = [];
 
-  const BEST_KEY = 'mul_best_score_v1';
+  // Difficulty progression (1..3)
+  let diffTier = 1;
+  let recentResults = [];
+
+  // Stats per table
+  let tableStats = {};
+
+  // Timing answer phase
+  let answerPhaseStartTs = null;
+
+  // Session timing
+  let sessionStartTs = null;
+
+  // Storage keys
+  const BEST_KEY = 'mul_best_score_v3';
+  const HISTORY_KEY = 'mul_session_history_v1';
+
+  // --- Helpers
+  function showOnly(screen) {
+    setup.classList.add('hidden');
+    game.classList.add('hidden');
+    end.classList.add('hidden');
+    historyScreen.classList.add('hidden');
+    screen.classList.remove('hidden');
+  }
 
   function showBest() {
     const best = Number(localStorage.getItem(BEST_KEY) || 0);
@@ -207,75 +295,131 @@
     return Math.max(min, Math.min(max, n));
   }
 
-  function levelMultiplier(lvl) {
-    return ({1:1, 2:1.2, 3:1.5, 4:2, 5:2.5})[lvl] || 1;
-  }
-
-  function randInt(min, max) { // inclusive
+  function randInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
   }
 
-  function maybeUseExtension() {
-    const pct = Number(cfg.extensionsPct);
-    if (!pct) return false;
-    return (Math.random() * 100) < pct;
+  function clearTimer() {
+    if (timer) clearInterval(timer);
+    timer = null;
   }
 
-  function pickAB() {
-    const lvl = cfg.level;
-    const useExt = maybeUseExtension();
-    const extMax = cfg.extMax;
-
-    // Base ranges per level
-    let aMin, aMax, bMin, bMax;
-
-    if (lvl === 1) { aMin = 2; aMax = 10; bMin = 0; bMax = 10; }
-    if (lvl === 2) { aMin = 2; aMax = 12; bMin = 0; bMax = 12; }
-    if (lvl === 3) { aMin = 10; aMax = 99; bMin = 2; bMax = 12; }
-    if (lvl === 4) { aMin = 10; aMax = 99; bMin = 10; bMax = 99; }
-    if (lvl === 5) { aMin = 100; aMax = 999; bMin = 2; bMax = 99; }
-
-    // Extension logic: expand one of the operands occasionally
-    let a = randInt(aMin, aMax);
-    let b = randInt(bMin, bMax);
-
-    if (useExt) {
-      // On “pousse” plutôt B, mais parfois A
-      if (Math.random() < 0.75) {
-        b = randInt(11, extMax);
-      } else {
-        a = randInt(Math.min(11, aMax), extMax);
+  function startCountdown(seconds, onTimeout) {
+    clearTimer();
+    timeLeft = seconds;
+    timeLeftEl.textContent = timeLeft;
+    timer = setInterval(() => {
+      timeLeft--;
+      timeLeftEl.textContent = timeLeft;
+      if (timeLeft <= 0) {
+        clearTimer();
+        onTimeout();
       }
-    }
+    }, 1000);
+  }
 
-    // Avoid too huge computations for young kids if lvl 1–2:
-    if (lvl <= 2) {
-      a = Math.min(a, extMax);
-      b = Math.min(b, extMax);
-    }
+  function currentMultiplier() {
+    return 1 + Math.floor(streak / 3);
+  }
 
-    return { a, b };
+  function updateHUD() {
+    scoreEl.textContent = score;
+    streakEl.textContent = streak;
+    multEl.textContent = `x${currentMultiplier()}`;
+    diffTagEl.textContent = `${diffTier}/3`;
   }
 
   function sameAsRecent(a, b) {
     const key = `${a}x${b}`;
-    return history.includes(key);
+    return historyPairs.includes(key);
   }
 
-  function pushHistory(a, b) {
+  function pushHistoryPair(a, b) {
     const key = `${a}x${b}`;
-    history.push(key);
-    if (history.length > 10) history.shift();
+    historyPairs.push(key);
+    if (historyPairs.length > 14) historyPairs.shift();
   }
 
+  function ensureTableStats(maxTable) {
+    tableStats = {};
+    for (let t = 1; t <= maxTable; t++) {
+      tableStats[t] = { asked: 0, correct: 0, wrong: 0, timeSumMs: 0, answered: 0 };
+    }
+  }
+
+  function recordStats(tableA, isCorrect, responseMs) {
+    const s = tableStats[tableA];
+    if (!s) return;
+    s.asked++;
+    if (isCorrect) s.correct++; else s.wrong++;
+    if (Number.isFinite(responseMs) && responseMs >= 0) {
+      s.timeSumMs += responseMs;
+      s.answered++;
+    }
+  }
+
+  // --- Progressive difficulty
+  function tierMaxB() {
+    if (!cfg.adaptive) return MAX_MULTIPLIER_OPERAND;
+    if (diffTier === 1) return 6;
+    if (diffTier === 2) return 9;
+    return 12;
+  }
+
+  function updateDifficultyTier() {
+    if (!cfg.adaptive) { diffTier = 3; return; }
+    const w = recentResults.slice(-10);
+    if (w.length < 6) return;
+    const acc = w.filter(Boolean).length / w.length;
+    if (acc >= 0.85 && diffTier < 3) diffTier++;
+    if (acc <= 0.55 && diffTier > 1) diffTier--;
+  }
+
+  // Weighted pick: focus weaker tables
+  function pickTableA() {
+    const maxT = cfg.maxTable;
+    const weights = [];
+    let sum = 0;
+
+    for (let t = 1; t <= maxT; t++) {
+      const s = tableStats[t];
+      const asked = s.asked;
+      const acc = asked > 0 ? (s.correct / asked) : 0.5;
+
+      let w = 1;
+      if (asked < 3) w += 1.2;
+      w += (1 - acc) * 1.8;
+      w += Math.min(0.6, s.wrong * 0.08);
+
+      weights.push(w);
+      sum += w;
+    }
+
+    let r = Math.random() * sum;
+    for (let i = 0; i < weights.length; i++) {
+      r -= weights[i];
+      if (r <= 0) return i + 1;
+    }
+    return randInt(1, maxT);
+  }
+
+  function pickB() {
+    const maxB = tierMaxB();
+    if (maxB <= 1) return 1;
+    if (!cfg.adaptive || diffTier === 1) return randInt(1, maxB);
+    const u = Math.random();
+    const biased = Math.ceil(Math.pow(u, 0.65) * maxB);
+    return Math.max(1, Math.min(maxB, biased));
+  }
+
+  // --- QCM choices
   function buildChoices(answer, a, b) {
     const set = new Set([answer]);
     const candidates = [
       answer + 1, answer - 1, answer + 2, answer - 2,
       answer + 10, answer - 10,
       a * (b + 1), a * (b - 1),
-      (a + 1) * b, (a - 1) * b,
-      Math.round(answer * 1.1), Math.round(answer * 0.9)
+      (a + 1) * b, (a - 1) * b
     ].filter(x => Number.isFinite(x) && x >= 0);
 
     while (set.size < 4) {
@@ -288,7 +432,6 @@
     }
 
     const arr = Array.from(set);
-    // shuffle
     for (let i = arr.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [arr[i], arr[j]] = [arr[j], arr[i]];
@@ -296,175 +439,391 @@
     return arr;
   }
 
-  function newQuestion() {
-    nextBtn.disabled = true;
-    feedback.textContent = '';
-
+  function generateQuestion() {
     let tries = 0;
     let a, b;
     do {
-      const ab = pickAB();
-      a = ab.a; b = ab.b;
+      a = pickTableA();
+      b = pickB();
       tries++;
-    } while (sameAsRecent(a, b) && tries < 8);
+    } while (sameAsRecent(a, b) && tries < 10);
 
-    pushHistory(a, b);
-
+    pushHistoryPair(a, b);
     const answer = a * b;
     current = { a, b, answer, choices: buildChoices(answer, a, b) };
-
     questionText.textContent = `${a} × ${b} = ?`;
+  }
 
-    // Render mode
-    if (cfg.mode === 'mcq') {
+  // --- Phases
+  function setPhaseChoose() {
+    phase = 'choose';
+    selectedMode = null;
+    feedback.textContent = '';
+    nextBtn.disabled = true;
+
+    phaseTitle.textContent = `Choisis ton mode (10 secondes)`;
+    chooseModeBox.classList.remove('hidden');
+    mcqBox.classList.add('hidden');
+    inputBox.classList.add('hidden');
+
+    chooseInputBtn.disabled = false;
+    chooseMcqBtn.disabled = false;
+
+    startCountdown(CHOOSE_SECONDS, () => setModeAndAsk('mcq'));
+  }
+
+  function setModeAndAsk(mode) {
+    if (!current || phase !== 'choose') return;
+    selectedMode = mode;
+    clearTimer();
+    setPhaseAnswer();
+  }
+
+  function setPhaseAnswer() {
+    phase = 'answer';
+    feedback.textContent = '';
+    nextBtn.disabled = true;
+
+    phaseTitle.textContent = `Réponds (10 secondes)`;
+    chooseModeBox.classList.add('hidden');
+
+    answerPhaseStartTs = Date.now();
+
+    if (selectedMode === 'mcq') {
       mcqBox.classList.remove('hidden');
       inputBox.classList.add('hidden');
       mcqBox.innerHTML = '';
       current.choices.forEach(val => {
         const btn = document.createElement('button');
         btn.textContent = val;
-        btn.onclick = () => submitAnswer(val);
+        btn.onclick = () => submitAnswer(val, false);
         mcqBox.appendChild(btn);
       });
     } else {
       mcqBox.classList.add('hidden');
       inputBox.classList.remove('hidden');
+      answerInput.disabled = false;
+      validateBtn.disabled = false;
+      skipBtn.disabled = false;
       answerInput.value = '';
       answerInput.focus();
     }
 
-    // Start timer
-    startTimer();
+    startCountdown(ANSWER_SECONDS, () => submitAnswer(null, true));
   }
 
-  function startTimer() {
-    clearInterval(timer);
-    timeLeft = cfg.secondsPerQ;
-    timeLeftEl.textContent = timeLeft;
-
-    timer = setInterval(() => {
-      timeLeft--;
-      timeLeftEl.textContent = timeLeft;
-      if (timeLeft <= 0) {
-        clearInterval(timer);
-        submitAnswer(null, true); // timed out
-      }
-    }, 1000);
-  }
-
-  function computePoints(isCorrect) {
-    const base = 10;
-    const speedBonus = Math.max(0, timeLeft); // remaining seconds
-    const mult = levelMultiplier(cfg.level);
-    let pts = (base + speedBonus) * mult;
-
-    // combo bonus
-    if (isCorrect && streak > 0 && streak % 3 === 0) pts += 5 * mult;
-
-    return Math.round(pts);
+  function disableAnswerUI() {
+    Array.from(mcqBox.querySelectorAll('button')).forEach(b => b.disabled = true);
+    validateBtn.disabled = true;
+    skipBtn.disabled = true;
+    answerInput.disabled = true;
+    chooseInputBtn.disabled = true;
+    chooseMcqBtn.disabled = true;
   }
 
   function submitAnswer(value, timedOut=false) {
-    // Prevent double submit
-    if (!current) return;
-    clearInterval(timer);
+    if (!current || phase !== 'answer') return;
 
+    clearTimer();
+    disableAnswerUI();
+
+    const responseMs = answerPhaseStartTs ? (Date.now() - answerPhaseStartTs) : NaN;
     const correct = (value === current.answer);
+
     if (correct) {
+      const mult = currentMultiplier();
+      const basePoints = (selectedMode === 'input') ? 2 : 1;
+      const gained = basePoints * mult;
+
+      score += gained;
       streak++;
       bestStreak = Math.max(bestStreak, streak);
       correctCount++;
-      const pts = computePoints(true);
-      score += pts;
-      feedback.innerHTML = `<span class="ok">✅ Bravo !</span> +${pts} points`;
+
+      feedback.innerHTML = `<span class="ok">✅ Bravo !</span> +${gained} pts (base ${basePoints} × ${mult})`;
+      recentResults.push(true);
+      recordStats(current.a, true, responseMs);
     } else {
+      score = Math.max(0, score - 1);
       streak = 0;
-      const penalty = Math.round(3 * levelMultiplier(cfg.level));
-      score = Math.max(0, score - penalty);
-      const reason = timedOut ? "Temps écoulé" : "Oups";
-      feedback.innerHTML = `<span class="ko">❌ ${reason}.</span> Bonne réponse : <b>${current.answer}</b> (-${penalty})`;
+
+      const reason = timedOut ? "Temps écoulé" : "Mauvaise réponse";
+      feedback.innerHTML = `<span class="ko">❌ ${reason}.</span> Bonne réponse : <b>${current.answer}</b> (-1 pt)`;
+      recentResults.push(false);
+      recordStats(current.a, false, responseMs);
     }
 
-    scoreEl.textContent = score;
-    streakEl.textContent = streak;
+    updateDifficultyTier();
+    updateHUD();
 
-    // disable mcq buttons
-    Array.from(mcqBox.querySelectorAll('button')).forEach(b => b.disabled = true);
-
-    current = current; // keep for display
+    phase = 'reveal';
     nextBtn.disabled = false;
   }
 
-  function next() {
+  function nextQuestion() {
     qIndex++;
     qIndexEl.textContent = qIndex;
-    if (qIndex > cfg.totalQuestions) {
-      finish();
+
+    if (cfg.gameMode === 'finite' && qIndex > cfg.totalQuestions) {
+      finish(false);
       return;
     }
-    newQuestion();
+
+    generateQuestion();
+    setPhaseChoose();
   }
 
-  function finish() {
-    clearInterval(timer);
-    setup.classList.add('hidden');
-    game.classList.add('hidden');
-    end.classList.remove('hidden');
+  // --- Stats rendering
+  function renderStatsTable(containerEl, statsObj, maxTable) {
+    const rows = [];
+    for (let t = 1; t <= maxTable; t++) {
+      const s = statsObj[t] || { asked:0, correct:0, wrong:0, timeSumMs:0, answered:0 };
+      const asked = s.asked;
+      const acc = asked > 0 ? Math.round((s.correct / asked) * 100) : 0;
+      const avgSec = s.answered > 0 ? (s.timeSumMs / s.answered / 1000) : 0;
+      rows.push({ t, asked, correct: s.correct, wrong: s.wrong, acc, avgSec, answered: s.answered });
+    }
 
-    const accuracy = Math.round((correctCount / cfg.totalQuestions) * 100);
+    const weak = rows.filter(r => r.asked > 0).sort((a,b)=>a.acc-b.acc).slice(0,3);
+    const tip = weak.length
+      ? `<div class="small" style="margin:10px 0;"><span class="tag">À travailler</span> ${weak.map(r=>`table de ${r.t} (${r.acc}%)`).join(', ')}</div>`
+      : `<div class="small" style="margin:10px 0;"><span class="tag">Info</span> Aucune question enregistrée.</div>`;
+
+    containerEl.innerHTML = `
+      ${tip}
+      <table>
+        <thead>
+          <tr>
+            <th>Table</th><th>Questions</th><th>✅</th><th>❌</th><th>% réussite</th><th>Temps moyen</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(r => `
+            <tr>
+              <td>${r.t}</td>
+              <td>${r.asked}</td>
+              <td>${r.correct}</td>
+              <td>${r.wrong}</td>
+              <td>${r.asked ? (r.acc + '%') : '-'}</td>
+              <td>${r.answered ? (r.avgSec.toFixed(1) + 's') : '-'}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  }
+
+  // --- History storage
+  function loadHistory() {
+    try {
+      const raw = localStorage.getItem(HISTORY_KEY);
+      const arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function saveHistory(arr) {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(arr));
+  }
+
+  function formatDate(ts) {
+    const d = new Date(ts);
+    const pad = n => String(n).padStart(2, '0');
+    return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  function computeTotals(statsObj) {
+    let asked=0, correct=0, wrong=0, answered=0, timeSumMs=0;
+    for (const k in statsObj) {
+      const s = statsObj[k];
+      asked += s.asked || 0;
+      correct += s.correct || 0;
+      wrong += s.wrong || 0;
+      answered += s.answered || 0;
+      timeSumMs += s.timeSumMs || 0;
+    }
+    const acc = asked ? Math.round((correct / asked) * 100) : 0;
+    const avgSec = answered ? (timeSumMs / answered / 1000) : 0;
+    return { asked, correct, wrong, acc, avgSec };
+  }
+
+  function snapshotTableStats(maxTable) {
+    const snap = {};
+    for (let t = 1; t <= maxTable; t++) {
+      const s = tableStats[t];
+      snap[t] = { asked: s.asked, correct: s.correct, wrong: s.wrong, timeSumMs: s.timeSumMs, answered: s.answered };
+    }
+    return snap;
+  }
+
+  function addSessionToHistory(session) {
+    const arr = loadHistory();
+    arr.unshift(session);
+    // keep last 50
+    if (arr.length > 50) arr.length = 50;
+    saveHistory(arr);
+  }
+
+  function deleteSession(id) {
+    const arr = loadHistory().filter(s => s.id !== id);
+    saveHistory(arr);
+    renderHistory();
+  }
+
+  function renderHistory() {
+    const arr = loadHistory();
+    if (!arr.length) {
+      historyList.innerHTML = `<div class="small">Aucune session enregistrée pour l’instant.</div>`;
+      return;
+    }
+
+    historyList.innerHTML = arr.map(s => {
+      const totals = computeTotals(s.tableStats);
+      const modeLabel = s.gameMode === 'infinite'
+        ? (s.stoppedByUser ? 'Infini (arrêt manuel)' : 'Infini')
+        : `Série (${s.totalQuestions} q)`;
+
+      const durationMin = Math.max(0, Math.round((s.durationSec || 0) / 60));
+      const durationStr = s.durationSec ? `${durationMin} min` : '-';
+
+      // Build per-table HTML inside the details
+      const tableDivId = `hist_table_${s.id}`;
+
+      return `
+        <details>
+          <summary>
+            ${formatDate(s.endedAt)} — <b>${modeLabel}</b>
+            <span class="right">Score ${s.score} • ${totals.acc}%</span>
+          </summary>
+          <div class="small" style="margin-top:8px;">
+            Tables 1→${s.maxTable} • Progressif: ${s.adaptive ? 'Oui' : 'Non'} • Durée: ${durationStr}<br>
+            Répondu: ${totals.asked} • ✅ ${totals.correct} • ❌ ${totals.wrong} • Temps moyen: ${totals.avgSec ? totals.avgSec.toFixed(1)+'s' : '-'}<br>
+            Meilleure série: ${s.bestStreak}
+          </div>
+
+          <div id="${tableDivId}"></div>
+
+          <div class="btnRow">
+            <button class="danger" data-del="${s.id}">Supprimer cette session</button>
+          </div>
+        </details>
+      `;
+    }).join('');
+
+    // Fill each session's table
+    const arr2 = loadHistory();
+    for (const s of arr2) {
+      const div = document.getElementById(`hist_table_${s.id}`);
+      if (div) renderStatsTable(div, s.tableStats, s.maxTable);
+    }
+
+    // Bind delete buttons
+    Array.from(historyList.querySelectorAll('button[data-del]')).forEach(btn => {
+      btn.onclick = () => deleteSession(Number(btn.getAttribute('data-del')));
+    });
+  }
+
+  // --- Finish / save session
+  function finish(stoppedByUser) {
+    clearTimer();
+
+    const endedAt = Date.now();
+    const durationSec = sessionStartTs ? Math.round((endedAt - sessionStartTs)/1000) : 0;
+
+    // Summary for end screen
+    const totals = computeTotals(tableStats);
+    const modeLabel = cfg.gameMode === 'infinite'
+      ? (stoppedByUser ? "Mode infini (arrêt manuel)" : "Mode infini")
+      : "Série";
+
     summary.innerHTML = `
+      <div class="pill">Mode : <b>${modeLabel}</b></div><br/>
       <div class="pill">Score final : <b>${score}</b></div><br/>
-      <div class="pill">Bonnes réponses : <b>${correctCount}</b> / ${cfg.totalQuestions} (${accuracy}%)</div><br/>
-      <div class="pill">Meilleure série : <b>${bestStreak}</b></div>
+      <div class="pill">Bonnes réponses : <b>${correctCount}</b> / ${totals.asked} (${totals.acc}%)</div><br/>
+      <div class="pill">Meilleure série : <b>${bestStreak}</b></div><br/>
+      <div class="small">Multiplicateurs ≤ 12 • Tables 1→${cfg.maxTable} • Difficulté progressive : ${cfg.adaptive ? 'Oui' : 'Non'}</div>
     `;
 
+    // Best score only for finite (tu peux changer si tu veux)
     const best = Number(localStorage.getItem(BEST_KEY) || 0);
-    if (score > best) localStorage.setItem(BEST_KEY, String(score));
+    if (cfg.gameMode === 'finite' && score > best) localStorage.setItem(BEST_KEY, String(score));
     showBest();
+
+    // Save to history
+    const session = {
+      id: endedAt, // unique enough
+      endedAt,
+      durationSec,
+      gameMode: cfg.gameMode,
+      totalQuestions: cfg.totalQuestions,
+      stoppedByUser: !!stoppedByUser,
+      maxTable: cfg.maxTable,
+      adaptive: cfg.adaptive,
+      score,
+      bestStreak,
+      correctCount,
+      tableStats: snapshotTableStats(cfg.maxTable)
+    };
+    addSessionToHistory(session);
+
+    // Render per-table stats on end screen
+    renderStatsTable(statsTable, tableStats, cfg.maxTable);
+
+    showOnly(end);
   }
 
-  function goSetup() {
-    clearInterval(timer);
-    setup.classList.remove('hidden');
-    game.classList.add('hidden');
-    end.classList.add('hidden');
-  }
-
-  function goGame() {
-    setup.classList.add('hidden');
-    game.classList.remove('hidden');
-    end.classList.add('hidden');
-  }
-
-  // --- Events
-  startBtn.onclick = () => {
+  // --- Start / navigation
+  function startGame() {
     cfg = {
-      level: Number(levelEl.value),
-      mode: modeEl.value,
-      secondsPerQ: clampInt(secondsPerQEl.value, 3, 30, 10),
-      totalQuestions: clampInt(questionCountEl.value, 5, 100, 15),
-      extensionsPct: Number(extensionsEl.value),
-      extMax: Number(extSizeEl.value)
+      gameMode: gameModeEl.value,                           // 'finite' | 'infinite'
+      totalQuestions: clampInt(questionCountEl.value, 5, 200, 20),
+      maxTable: Number(maxTableEl.value),                   // 10 | 20
+      adaptive: (adaptiveEl.value === 'on')
     };
 
-    // Reset session state
+    // Reset session
     qIndex = 1;
     score = 0;
     streak = 0;
     correctCount = 0;
     bestStreak = 0;
-    history = [];
+    historyPairs = [];
+    recentResults = [];
+    diffTier = cfg.adaptive ? 1 : 3;
 
-    qTotalEl.textContent = cfg.totalQuestions;
+    ensureTableStats(cfg.maxTable);
+
     qIndexEl.textContent = qIndex;
-    scoreEl.textContent = score;
-    streakEl.textContent = streak;
+    qTotalEl.textContent = (cfg.gameMode === 'finite') ? cfg.totalQuestions : '∞';
+    updateHUD();
 
-    goGame();
-    newQuestion();
-  };
+    stopBtn.classList.toggle('hidden', cfg.gameMode !== 'infinite');
 
-  nextBtn.onclick = next;
+    sessionStartTs = Date.now();
+
+    showOnly(game);
+    generateQuestion();
+    setPhaseChoose();
+  }
+
+  function goSetup() {
+    clearTimer();
+    showOnly(setup);
+  }
+
+  function goHistory() {
+    renderHistory();
+    showOnly(historyScreen);
+  }
+
+  // --- Events
+  startBtn.onclick = startGame;
+  nextBtn.onclick = nextQuestion;
+
+  chooseInputBtn.onclick = () => setModeAndAsk('input');
+  chooseMcqBtn.onclick = () => setModeAndAsk('mcq');
 
   validateBtn.onclick = () => {
     const v = answerInput.value.trim();
@@ -473,25 +832,44 @@
       feedback.innerHTML = `<span class="ko">Entre un nombre 🙂</span>`;
       return;
     }
-    submitAnswer(n);
+    submitAnswer(n, false);
   };
 
-  // Enter key to validate
   answerInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') validateBtn.click();
   });
 
-  skipBtn.onclick = () => submitAnswer(null);
+  skipBtn.onclick = () => submitAnswer(null, false);
+
+  stopBtn.onclick = () => finish(true);
+
   quitBtn.onclick = goSetup;
 
-  replayBtn.onclick = () => startBtn.click();
+  replayBtn.onclick = startGame;
   backBtn.onclick = goSetup;
+  endHistoryBtn.onclick = goHistory;
+
+  historyBtn.onclick = goHistory;
+  historyBackBtn.onclick = goSetup;
+
+  clearHistoryBtn.onclick = () => {
+    if (confirm("Effacer tout l’historique ?")) {
+      localStorage.removeItem(HISTORY_KEY);
+      renderHistory();
+    }
+  };
 
   resetBestBtn.onclick = () => {
     localStorage.removeItem(BEST_KEY);
     showBest();
   };
 
+  gameModeEl.addEventListener('change', () => {
+    qcBox.classList.toggle('hidden', gameModeEl.value === 'infinite');
+  });
+
+  // Init
+  qcBox.classList.toggle('hidden', gameModeEl.value === 'infinite');
   showBest();
 })();
 </script>
