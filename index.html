@@ -57,20 +57,20 @@
   <div id="screen-setup" class="card">
     <h1>Réviser les multiplications</h1>
     <div class="small">
-      Tables 1→10 (option 1→20). Multiplicateurs ≤ 12.<br>
-      10s pour choisir le mode + 10s pour répondre. Points + multiplicateur de série.
+      Tables 1→10 (option 1→20). Multiplicateurs ≤ 12. Difficulté progressive optionnelle.<br>
+      <b>Classique</b> : 10s pour choisir mode + 10s pour répondre. <b>Challenge</b> : 5 minutes sans timer par question.
     </div>
 
     <div class="row" style="margin-top:12px;">
       <div>
         <label>Mode de jeu</label>
         <select id="gameMode">
-          <option value="finite">Série (nombre de questions)</option>
-          <option value="infinite">Infini (j’arrête quand je veux)</option>
+          <option value="classic">Classique (série)</option>
+          <option value="challenge">Challenge 5 minutes</option>
         </select>
       </div>
       <div id="qcBox">
-        <label>Nombre de questions</label>
+        <label>Nombre de questions (Classique)</label>
         <input id="questionCount" type="number" min="5" max="200" value="20" />
       </div>
     </div>
@@ -95,11 +95,11 @@
     <div class="divider"></div>
 
     <div class="small">
-      Règles : +2 (réponse écrite), +1 (QCM), -1 (mauvaise réponse ou temps).<br>
-      Multiplicateur : +1 toutes les 3 bonnes réponses d’affilée, reset à x1 si erreur.
+      <b>Barème Classique</b> : +15 (écrit), +10 (QCM), -5 (faux/temps). Bonus : +5 toutes les 5 bonnes réponses d’affilée.<br>
+      <b>Barème Challenge</b> : +10 (bonne), -5 (fausse), 0 (passer). Bonus : +5 toutes les 5 bonnes réponses d’affilée.
     </div>
 
-    <div class="btnRow">
+    <div class="btnRow" style="margin-top: 14px;">
       <button class="primary" id="startBtn">Démarrer</button>
       <button id="historyBtn">Historique</button>
       <button id="resetBestBtn">Réinitialiser meilleur score</button>
@@ -112,20 +112,20 @@
   <div id="screen-game" class="card hidden">
     <div class="hud">
       <div class="pill">Question: <span id="qIndex">1</span>/<span id="qTotal">20</span></div>
-      <div class="pill">⏱️ <span id="timeLeft">10</span>s</div>
+      <div class="pill">⏱️ <span id="timeLeft">10</span></div>
       <div class="pill">Score: <span id="score">0</span></div>
       <div class="pill">Série: <span id="streak">0</span></div>
-      <div class="pill">Multiplicateur: <span id="mult">x1</span></div>
+      <div class="pill">Bonus séries: <span id="bonusCount">0</span></div>
       <div class="pill">Difficulté: <span id="diffTag">1/3</span></div>
     </div>
 
     <div id="phaseTitle" class="small">Choisis ton mode</div>
     <div class="question" id="questionText">8 × 7 = ?</div>
 
-    <!-- PHASE CHOIX MODE -->
+    <!-- PHASE CHOIX MODE (Classique uniquement) -->
     <div id="chooseModeBox" class="modeBox">
-      <button class="primary" id="chooseInputBtn">✍️ Réponse écrite (+2 pts)</button>
-      <button id="chooseMcqBtn">🧩 QCM 4 choix (+1 pt)</button>
+      <button class="primary" id="chooseInputBtn">✍️ Réponse écrite (+15)</button>
+      <button id="chooseMcqBtn">🧩 QCM 4 choix (+10)</button>
     </div>
 
     <!-- PHASE REPONSE -->
@@ -136,14 +136,14 @@
       <input id="answerInput" type="text" inputmode="numeric" placeholder="Tape le résultat" />
       <div class="btnRow">
         <button class="primary" id="validateBtn">Valider</button>
-        <button class="danger" id="skipBtn">Je ne sais pas</button>
+        <button class="danger" id="skipBtn">Passer</button>
       </div>
     </div>
 
     <div id="feedback" style="margin-top:12px; min-height: 22px;"></div>
     <div class="btnRow">
       <button id="nextBtn" class="primary" disabled>Suivant</button>
-      <button id="stopBtn" class="danger hidden">Arrêter la série</button>
+      <button id="stopBtn" class="danger">Arrêter</button>
       <button id="quitBtn">Quitter</button>
     </div>
   </div>
@@ -155,7 +155,7 @@
 
     <div class="divider"></div>
     <h2>Stats par table</h2>
-    <div class="small">Astuce : travaille d’abord les tables avec le plus faible % de réussite.</div>
+    <div class="small">Regarde surtout les tables avec un faible % et beaucoup de “Passer”.</div>
     <div id="statsTable"></div>
 
     <div class="btnRow" style="margin-top: 14px;">
@@ -183,7 +183,7 @@
 
 <script>
 (() => {
-  // --- Elements
+  // --------- Elements
   const setup = document.getElementById('screen-setup');
   const game  = document.getElementById('screen-game');
   const end   = document.getElementById('screen-end');
@@ -204,7 +204,7 @@
   const timeLeftEl = document.getElementById('timeLeft');
   const scoreEl = document.getElementById('score');
   const streakEl = document.getElementById('streak');
-  const multEl = document.getElementById('mult');
+  const bonusCountEl = document.getElementById('bonusCount');
   const diffTagEl = document.getElementById('diffTag');
 
   const phaseTitle = document.getElementById('phaseTitle');
@@ -237,45 +237,62 @@
   const clearHistoryBtn = document.getElementById('clearHistoryBtn');
   const historyList = document.getElementById('historyList');
 
-  // --- Rules fixed by you
-  const CHOOSE_SECONDS = 10;
-  const ANSWER_SECONDS = 10;
+  // --------- Constants
   const MAX_MULTIPLIER_OPERAND = 12;
 
-  // --- State
+  // Classic timers
+  const CHOOSE_SECONDS = 10;
+  const ANSWER_SECONDS = 10;
+
+  // Challenge duration
+  const CHALLENGE_SECONDS = 5 * 60;
+
+  // Scoring
+  const SCORE_CLASSIC_INPUT_OK = 15;
+  const SCORE_CLASSIC_MCQ_OK   = 10;
+  const SCORE_CHALLENGE_OK     = 10;
+  const SCORE_BAD              = -5;
+  const SCORE_SKIP             = 0;
+  const BONUS_EVERY_N_STREAK   = 5;   // every 5 correct in a row
+  const BONUS_POINTS           = 5;
+
+  // Storage keys
+  const BEST_KEY    = 'mul_best_score_v4';
+  const HISTORY_KEY = 'mul_session_history_v2';
+
+  // --------- State
   let cfg = {};
   let timer = null;
-  let timeLeft = 0;
 
-  let phase = 'choose';
-  let current = null;
-  let selectedMode = null;
+  let phase = 'choose';       // classic only: 'choose'|'answer'|'reveal'
+  let current = null;         // {a,b,answer,choices[]}
+  let selectedMode = null;    // 'input'|'mcq' (classic), 'challenge' uses input only
 
   let qIndex = 0;
   let score = 0;
   let streak = 0;
+  let bonusCount = 0;
   let correctCount = 0;
   let bestStreak = 0;
-  let historyPairs = [];
+  let askedCount = 0;
 
-  // Difficulty progression (1..3)
-  let diffTier = 1;
-  let recentResults = [];
+  // difficulty
+  let diffTier = 1;           // 1..3
+  let recentResults = [];     // last answers true/false (skip does not count)
 
-  // Stats per table
+  // stats per table
+  // tableStats[a] = { asked, correct, wrong, skipped, timeSumMs, answered }
   let tableStats = {};
-
-  // Timing answer phase
   let answerPhaseStartTs = null;
 
-  // Session timing
+  // session time
   let sessionStartTs = null;
+  let challengeEndsAtTs = null;
 
-  // Storage keys
-  const BEST_KEY = 'mul_best_score_v3';
-  const HISTORY_KEY = 'mul_session_history_v1';
+  // anti-repeat
+  let historyPairs = [];
 
-  // --- Helpers
+  // --------- UI helpers
   function showOnly(screen) {
     setup.classList.add('hidden');
     game.classList.add('hidden');
@@ -304,29 +321,54 @@
     timer = null;
   }
 
-  function startCountdown(seconds, onTimeout) {
+  function setTimeLabelClassic(sec) {
+    timeLeftEl.textContent = `${sec}s`;
+  }
+
+  function setTimeLabelChallenge(remSec) {
+    const m = Math.floor(remSec / 60);
+    const s = remSec % 60;
+    timeLeftEl.textContent = `${m}:${String(s).padStart(2,'0')}`;
+  }
+
+  function startCountdownClassic(seconds, onTimeout) {
     clearTimer();
-    timeLeft = seconds;
-    timeLeftEl.textContent = timeLeft;
+    let t = seconds;
+    setTimeLabelClassic(t);
     timer = setInterval(() => {
-      timeLeft--;
-      timeLeftEl.textContent = timeLeft;
-      if (timeLeft <= 0) {
-        clearTimer();
-        onTimeout();
-      }
+      t--;
+      setTimeLabelClassic(t);
+      if (t <= 0) { clearTimer(); onTimeout(); }
     }, 1000);
   }
 
-  function currentMultiplier() {
-    return 1 + Math.floor(streak / 3);
+  function startChallengeTimer() {
+    clearTimer();
+    challengeEndsAtTs = Date.now() + CHALLENGE_SECONDS*1000;
+    setTimeLabelChallenge(CHALLENGE_SECONDS);
+    timer = setInterval(() => {
+      const rem = Math.max(0, Math.ceil((challengeEndsAtTs - Date.now()) / 1000));
+      setTimeLabelChallenge(rem);
+      if (rem <= 0) {
+        clearTimer();
+        finish(true, false); // ended by timer
+      }
+    }, 250);
   }
 
   function updateHUD() {
     scoreEl.textContent = score;
     streakEl.textContent = streak;
-    multEl.textContent = `x${currentMultiplier()}`;
+    bonusCountEl.textContent = bonusCount;
     diffTagEl.textContent = `${diffTier}/3`;
+  }
+
+  function maybeApplyStreakBonus() {
+    if (streak > 0 && streak % BONUS_EVERY_N_STREAK === 0) {
+      score += BONUS_POINTS;
+      bonusCount++;
+      feedback.innerHTML += ` <span class="ok">+${BONUS_POINTS} bonus (série de ${BONUS_EVERY_N_STREAK})</span>`;
+    }
   }
 
   function sameAsRecent(a, b) {
@@ -343,22 +385,25 @@
   function ensureTableStats(maxTable) {
     tableStats = {};
     for (let t = 1; t <= maxTable; t++) {
-      tableStats[t] = { asked: 0, correct: 0, wrong: 0, timeSumMs: 0, answered: 0 };
+      tableStats[t] = { asked: 0, correct: 0, wrong: 0, skipped: 0, timeSumMs: 0, answered: 0 };
     }
   }
 
-  function recordStats(tableA, isCorrect, responseMs) {
+  function recordStats(tableA, kind, responseMs) {
+    // kind: 'correct'|'wrong'|'skipped'
     const s = tableStats[tableA];
     if (!s) return;
     s.asked++;
-    if (isCorrect) s.correct++; else s.wrong++;
-    if (Number.isFinite(responseMs) && responseMs >= 0) {
+    if (kind === 'correct') s.correct++;
+    if (kind === 'wrong') s.wrong++;
+    if (kind === 'skipped') s.skipped++;
+    if (kind !== 'skipped' && Number.isFinite(responseMs) && responseMs >= 0) {
       s.timeSumMs += responseMs;
       s.answered++;
     }
   }
 
-  // --- Progressive difficulty
+  // --------- Progressive difficulty
   function tierMaxB() {
     if (!cfg.adaptive) return MAX_MULTIPLIER_OPERAND;
     if (diffTier === 1) return 6;
@@ -375,7 +420,7 @@
     if (acc <= 0.55 && diffTier > 1) diffTier--;
   }
 
-  // Weighted pick: focus weaker tables
+  // Weighted pick: focus weaker tables + skipped
   function pickTableA() {
     const maxT = cfg.maxTable;
     const weights = [];
@@ -387,9 +432,9 @@
       const acc = asked > 0 ? (s.correct / asked) : 0.5;
 
       let w = 1;
-      if (asked < 3) w += 1.2;
-      w += (1 - acc) * 1.8;
-      w += Math.min(0.6, s.wrong * 0.08);
+      if (asked < 3) w += 1.2;                 // explore
+      w += (1 - acc) * 1.7;                    // focus weaknesses
+      w += Math.min(0.9, (s.wrong * 0.08) + (s.skipped * 0.10)); // extra focus for wrong+skip
 
       weights.push(w);
       sum += w;
@@ -408,11 +453,11 @@
     if (maxB <= 1) return 1;
     if (!cfg.adaptive || diffTier === 1) return randInt(1, maxB);
     const u = Math.random();
-    const biased = Math.ceil(Math.pow(u, 0.65) * maxB);
+    const biased = Math.ceil(Math.pow(u, 0.65) * maxB); // bias toward higher values
     return Math.max(1, Math.min(maxB, biased));
   }
 
-  // --- QCM choices
+  // --------- QCM choices
   function buildChoices(answer, a, b) {
     const set = new Set([answer]);
     const candidates = [
@@ -454,39 +499,35 @@
     questionText.textContent = `${a} × ${b} = ?`;
   }
 
-  // --- Phases
-  function setPhaseChoose() {
+  // --------- Classic flow
+  function setPhaseChooseClassic() {
     phase = 'choose';
     selectedMode = null;
     feedback.textContent = '';
     nextBtn.disabled = true;
 
-    phaseTitle.textContent = `Choisis ton mode (10 secondes)`;
+    phaseTitle.textContent = `Choisis ton mode (10s)`;
     chooseModeBox.classList.remove('hidden');
     mcqBox.classList.add('hidden');
     inputBox.classList.add('hidden');
 
-    chooseInputBtn.disabled = false;
-    chooseMcqBtn.disabled = false;
-
-    startCountdown(CHOOSE_SECONDS, () => setModeAndAsk('mcq'));
+    startCountdownClassic(CHOOSE_SECONDS, () => setModeAndAskClassic('mcq'));
   }
 
-  function setModeAndAsk(mode) {
+  function setModeAndAskClassic(mode) {
     if (!current || phase !== 'choose') return;
-    selectedMode = mode;
+    selectedMode = mode; // 'input'|'mcq'
     clearTimer();
-    setPhaseAnswer();
+    setPhaseAnswerClassic();
   }
 
-  function setPhaseAnswer() {
+  function setPhaseAnswerClassic() {
     phase = 'answer';
     feedback.textContent = '';
     nextBtn.disabled = true;
+    phaseTitle.textContent = `Réponds (10s)`;
 
-    phaseTitle.textContent = `Réponds (10 secondes)`;
     chooseModeBox.classList.add('hidden');
-
     answerPhaseStartTs = Date.now();
 
     if (selectedMode === 'mcq') {
@@ -496,20 +537,17 @@
       current.choices.forEach(val => {
         const btn = document.createElement('button');
         btn.textContent = val;
-        btn.onclick = () => submitAnswer(val, false);
+        btn.onclick = () => submitClassic(val, false, false);
         mcqBox.appendChild(btn);
       });
     } else {
       mcqBox.classList.add('hidden');
       inputBox.classList.remove('hidden');
-      answerInput.disabled = false;
-      validateBtn.disabled = false;
-      skipBtn.disabled = false;
       answerInput.value = '';
       answerInput.focus();
     }
 
-    startCountdown(ANSWER_SECONDS, () => submitAnswer(null, true));
+    startCountdownClassic(ANSWER_SECONDS, () => submitClassic(null, true, false));
   }
 
   function disableAnswerUI() {
@@ -521,72 +559,188 @@
     chooseMcqBtn.disabled = true;
   }
 
-  function submitAnswer(value, timedOut=false) {
-    if (!current || phase !== 'answer') return;
+  function enableAnswerUI() {
+    validateBtn.disabled = false;
+    skipBtn.disabled = false;
+    answerInput.disabled = false;
+  }
+
+  function submitClassic(value, timedOut=false, isSkip=false) {
+    if (!current) return;
+    if (cfg.gameMode !== 'classic' || phase !== 'answer') return;
 
     clearTimer();
     disableAnswerUI();
 
     const responseMs = answerPhaseStartTs ? (Date.now() - answerPhaseStartTs) : NaN;
-    const correct = (value === current.answer);
 
-    if (correct) {
-      const mult = currentMultiplier();
-      const basePoints = (selectedMode === 'input') ? 2 : 1;
-      const gained = basePoints * mult;
+    askedCount++;
+    const correct = (!isSkip && value === current.answer);
 
+    if (isSkip) {
+      // classic: passer = 0 (mais on compte comme "skipped" dans stats)
+      recordStats(current.a, 'skipped', NaN);
+      feedback.innerHTML = `<span class="muted">⏭️ Passé (0 pt)</span>`;
+      // pas de changement de streak
+    } else if (correct) {
+      const gained = (selectedMode === 'input') ? SCORE_CLASSIC_INPUT_OK : SCORE_CLASSIC_MCQ_OK;
       score += gained;
       streak++;
       bestStreak = Math.max(bestStreak, streak);
       correctCount++;
 
-      feedback.innerHTML = `<span class="ok">✅ Bravo !</span> +${gained} pts (base ${basePoints} × ${mult})`;
+      recordStats(current.a, 'correct', responseMs);
       recentResults.push(true);
-      recordStats(current.a, true, responseMs);
+      updateDifficultyTier();
+
+      feedback.innerHTML = `<span class="ok">✅ Bravo !</span> +${gained} pts`;
+      maybeApplyStreakBonus();
     } else {
-      score = Math.max(0, score - 1);
+      score = Math.max(0, score + SCORE_BAD);
       streak = 0;
 
-      const reason = timedOut ? "Temps écoulé" : "Mauvaise réponse";
-      feedback.innerHTML = `<span class="ko">❌ ${reason}.</span> Bonne réponse : <b>${current.answer}</b> (-1 pt)`;
+      recordStats(current.a, 'wrong', responseMs);
       recentResults.push(false);
-      recordStats(current.a, false, responseMs);
+      updateDifficultyTier();
+
+      const reason = timedOut ? "Temps écoulé" : "Mauvaise réponse";
+      feedback.innerHTML = `<span class="ko">❌ ${reason}.</span> Bonne réponse : <b>${current.answer}</b> (${SCORE_BAD} pts)`;
     }
 
-    updateDifficultyTier();
     updateHUD();
-
     phase = 'reveal';
     nextBtn.disabled = false;
   }
 
-  function nextQuestion() {
+  function nextClassic() {
     qIndex++;
     qIndexEl.textContent = qIndex;
 
-    if (cfg.gameMode === 'finite' && qIndex > cfg.totalQuestions) {
-      finish(false);
+    if (qIndex > cfg.totalQuestions) {
+      finish(false, true);
       return;
     }
 
+    enableAnswerUI();
     generateQuestion();
-    setPhaseChoose();
+    setPhaseChooseClassic();
   }
 
-  // --- Stats rendering
+  // --------- Challenge flow (5 min, no per question timer)
+  function showChallengeQuestion() {
+    phaseTitle.textContent = `Challenge : réponds vite (pas de timer par question)`;
+    chooseModeBox.classList.add('hidden');
+    mcqBox.classList.add('hidden');
+
+    inputBox.classList.remove('hidden');
+    selectedMode = 'input';
+    answerInput.value = '';
+    answerInput.focus();
+
+    // In challenge, "Suivant" inutile
+    nextBtn.disabled = true;
+    nextBtn.classList.add('hidden');
+
+    // stop label
+    stopBtn.textContent = "Arrêter le challenge";
+    stopBtn.classList.remove('hidden');
+
+    // skip enabled
+    enableAnswerUI();
+    feedback.textContent = '';
+    answerPhaseStartTs = Date.now();
+  }
+
+  function submitChallenge(value, isSkip=false) {
+    if (!current) return;
+    if (cfg.gameMode !== 'challenge') return;
+
+    const responseMs = answerPhaseStartTs ? (Date.now() - answerPhaseStartTs) : NaN;
+
+    askedCount++;
+    qIndex++;
+    qIndexEl.textContent = qIndex;
+
+    if (isSkip) {
+      // skip = 0
+      recordStats(current.a, 'skipped', NaN);
+      feedback.innerHTML = `<span class="muted">⏭️ Passé (0 pt)</span>`;
+      // streak unchanged (tu peux aussi décider de reset, mais tu n’as pas demandé)
+    } else if (value === current.answer) {
+      score += SCORE_CHALLENGE_OK;
+      streak++;
+      bestStreak = Math.max(bestStreak, streak);
+      correctCount++;
+
+      recordStats(current.a, 'correct', responseMs);
+      recentResults.push(true);
+      updateDifficultyTier();
+
+      feedback.innerHTML = `<span class="ok">✅ +${SCORE_CHALLENGE_OK} pts</span>`;
+      maybeApplyStreakBonus();
+    } else {
+      score = Math.max(0, score + SCORE_BAD);
+      streak = 0;
+
+      recordStats(current.a, 'wrong', responseMs);
+      recentResults.push(false);
+      updateDifficultyTier();
+
+      feedback.innerHTML = `<span class="ko">❌ ${SCORE_BAD} pts</span> (bonne réponse: <b>${current.answer}</b>)`;
+    }
+
+    updateHUD();
+
+    // next question immediately (unless time is over)
+    if (challengeEndsAtTs && Date.now() >= challengeEndsAtTs) {
+      finish(true, false);
+      return;
+    }
+    generateQuestion();
+    showChallengeQuestion();
+  }
+
+  // --------- Finish + stats + history
+  function computeTotals(statsObj) {
+    let asked=0, correct=0, wrong=0, skipped=0, answered=0, timeSumMs=0;
+    for (const k in statsObj) {
+      const s = statsObj[k];
+      asked += s.asked || 0;
+      correct += s.correct || 0;
+      wrong += s.wrong || 0;
+      skipped += s.skipped || 0;
+      answered += s.answered || 0;
+      timeSumMs += s.timeSumMs || 0;
+    }
+    const accAnswered = (correct + wrong) ? Math.round((correct / (correct + wrong)) * 100) : 0;
+    const accAll = asked ? Math.round((correct / asked) * 100) : 0;
+    const avgSec = answered ? (timeSumMs / answered / 1000) : 0;
+    return { asked, correct, wrong, skipped, accAnswered, accAll, avgSec };
+  }
+
   function renderStatsTable(containerEl, statsObj, maxTable) {
     const rows = [];
     for (let t = 1; t <= maxTable; t++) {
-      const s = statsObj[t] || { asked:0, correct:0, wrong:0, timeSumMs:0, answered:0 };
+      const s = statsObj[t] || { asked:0, correct:0, wrong:0, skipped:0, timeSumMs:0, answered:0 };
       const asked = s.asked;
-      const acc = asked > 0 ? Math.round((s.correct / asked) * 100) : 0;
+      const answered = s.correct + s.wrong;
+      const acc = answered > 0 ? Math.round((s.correct / answered) * 100) : 0; // accuracy excluding skips
+      const skipRate = asked > 0 ? Math.round((s.skipped / asked) * 100) : 0;
       const avgSec = s.answered > 0 ? (s.timeSumMs / s.answered / 1000) : 0;
-      rows.push({ t, asked, correct: s.correct, wrong: s.wrong, acc, avgSec, answered: s.answered });
+      rows.push({ t, asked, correct:s.correct, wrong:s.wrong, skipped:s.skipped, acc, skipRate, avgSec, answeredCount: s.answered });
     }
 
-    const weak = rows.filter(r => r.asked > 0).sort((a,b)=>a.acc-b.acc).slice(0,3);
+    // Weak tables: low accuracy OR lots of skips
+    const weak = rows
+      .filter(r => r.asked > 0)
+      .sort((a,b) => (a.acc - b.acc) || (b.skipRate - a.skipRate) || (b.asked - a.asked))
+      .slice(0,3);
+
     const tip = weak.length
-      ? `<div class="small" style="margin:10px 0;"><span class="tag">À travailler</span> ${weak.map(r=>`table de ${r.t} (${r.acc}%)`).join(', ')}</div>`
+      ? `<div class="small" style="margin:10px 0;">
+           <span class="tag">À travailler</span>
+           ${weak.map(r => `table de ${r.t} (réussite ${r.acc}%, passés ${r.skipped})`).join(', ')}
+         </div>`
       : `<div class="small" style="margin:10px 0;"><span class="tag">Info</span> Aucune question enregistrée.</div>`;
 
     containerEl.innerHTML = `
@@ -594,7 +748,7 @@
       <table>
         <thead>
           <tr>
-            <th>Table</th><th>Questions</th><th>✅</th><th>❌</th><th>% réussite</th><th>Temps moyen</th>
+            <th>Table</th><th>Questions</th><th>✅</th><th>❌</th><th>⏭️</th><th>% réussite*</th><th>Temps moyen</th>
           </tr>
         </thead>
         <tbody>
@@ -604,16 +758,83 @@
               <td>${r.asked}</td>
               <td>${r.correct}</td>
               <td>${r.wrong}</td>
-              <td>${r.asked ? (r.acc + '%') : '-'}</td>
-              <td>${r.answered ? (r.avgSec.toFixed(1) + 's') : '-'}</td>
+              <td>${r.skipped}</td>
+              <td>${(r.correct + r.wrong) ? (r.acc + '%') : '-'}</td>
+              <td>${r.answeredCount ? (r.avgSec.toFixed(1) + 's') : '-'}</td>
             </tr>
           `).join('')}
         </tbody>
       </table>
+      <div class="small muted" style="margin-top:8px;">* % réussite calculé sur les réponses données (sans compter “Passer”).</div>
     `;
   }
 
-  // --- History storage
+  function snapshotTableStats(maxTable) {
+    const snap = {};
+    for (let t = 1; t <= maxTable; t++) {
+      const s = tableStats[t];
+      snap[t] = { asked: s.asked, correct: s.correct, wrong: s.wrong, skipped: s.skipped, timeSumMs: s.timeSumMs, answered: s.answered };
+    }
+    return snap;
+  }
+
+  function addSessionToHistory(session) {
+    const arr = loadHistory();
+    arr.unshift(session);
+    if (arr.length > 60) arr.length = 60;
+    saveHistory(arr);
+  }
+
+  function finish(stoppedByUser, saveBestIfClassic) {
+    clearTimer();
+
+    const endedAt = Date.now();
+    const durationSec = sessionStartTs ? Math.round((endedAt - sessionStartTs)/1000) : 0;
+
+    const totals = computeTotals(tableStats);
+
+    const modeLabel =
+      (cfg.gameMode === 'challenge') ? (stoppedByUser ? "Challenge (arrêt manuel)" : "Challenge (5 min)")
+      : "Classique";
+
+    summary.innerHTML = `
+      <div class="pill">Mode : <b>${modeLabel}</b></div><br/>
+      <div class="pill">Score final : <b>${score}</b></div><br/>
+      <div class="pill">Questions : <b>${totals.asked}</b> • ✅ ${totals.correct} • ❌ ${totals.wrong} • ⏭️ ${totals.skipped}</div><br/>
+      <div class="pill">% réussite (réponses données) : <b>${totals.accAnswered}%</b></div><br/>
+      <div class="pill">Meilleure série : <b>${bestStreak}</b> • Bonus séries : <b>${bonusCount}</b></div><br/>
+      <div class="small">Tables 1→${cfg.maxTable} • Difficulté progressive : ${cfg.adaptive ? 'Oui' : 'Non'}</div>
+    `;
+
+    // Best score (only classic by default)
+    const best = Number(localStorage.getItem(BEST_KEY) || 0);
+    if (saveBestIfClassic && score > best) localStorage.setItem(BEST_KEY, String(score));
+    showBest();
+
+    // Save in history
+    const session = {
+      id: endedAt,
+      endedAt,
+      durationSec,
+      gameMode: cfg.gameMode,
+      totalQuestions: cfg.totalQuestions,
+      stoppedByUser: !!stoppedByUser,
+      maxTable: cfg.maxTable,
+      adaptive: cfg.adaptive,
+      score,
+      bestStreak,
+      bonusCount,
+      correctCount,
+      askedCount: totals.asked,
+      tableStats: snapshotTableStats(cfg.maxTable)
+    };
+    addSessionToHistory(session);
+
+    renderStatsTable(statsTable, tableStats, cfg.maxTable);
+    showOnly(end);
+  }
+
+  // --------- History
   function loadHistory() {
     try {
       const raw = localStorage.getItem(HISTORY_KEY);
@@ -634,38 +855,6 @@
     return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }
 
-  function computeTotals(statsObj) {
-    let asked=0, correct=0, wrong=0, answered=0, timeSumMs=0;
-    for (const k in statsObj) {
-      const s = statsObj[k];
-      asked += s.asked || 0;
-      correct += s.correct || 0;
-      wrong += s.wrong || 0;
-      answered += s.answered || 0;
-      timeSumMs += s.timeSumMs || 0;
-    }
-    const acc = asked ? Math.round((correct / asked) * 100) : 0;
-    const avgSec = answered ? (timeSumMs / answered / 1000) : 0;
-    return { asked, correct, wrong, acc, avgSec };
-  }
-
-  function snapshotTableStats(maxTable) {
-    const snap = {};
-    for (let t = 1; t <= maxTable; t++) {
-      const s = tableStats[t];
-      snap[t] = { asked: s.asked, correct: s.correct, wrong: s.wrong, timeSumMs: s.timeSumMs, answered: s.answered };
-    }
-    return snap;
-  }
-
-  function addSessionToHistory(session) {
-    const arr = loadHistory();
-    arr.unshift(session);
-    // keep last 50
-    if (arr.length > 50) arr.length = 50;
-    saveHistory(arr);
-  }
-
   function deleteSession(id) {
     const arr = loadHistory().filter(s => s.id !== id);
     saveHistory(arr);
@@ -680,27 +869,26 @@
     }
 
     historyList.innerHTML = arr.map(s => {
-      const totals = computeTotals(s.tableStats);
-      const modeLabel = s.gameMode === 'infinite'
-        ? (s.stoppedByUser ? 'Infini (arrêt manuel)' : 'Infini')
-        : `Série (${s.totalQuestions} q)`;
+      const totals = computeTotals(s.tableStats || {});
+      const modeLabel = (s.gameMode === 'challenge')
+        ? (s.stoppedByUser ? 'Challenge (arrêt)' : 'Challenge (5 min)')
+        : `Classique (${s.totalQuestions || '-'} q)`;
 
-      const durationMin = Math.max(0, Math.round((s.durationSec || 0) / 60));
+      const durationMin = s.durationSec ? Math.max(0, Math.round(s.durationSec/60)) : 0;
       const durationStr = s.durationSec ? `${durationMin} min` : '-';
 
-      // Build per-table HTML inside the details
       const tableDivId = `hist_table_${s.id}`;
 
       return `
         <details>
           <summary>
             ${formatDate(s.endedAt)} — <b>${modeLabel}</b>
-            <span class="right">Score ${s.score} • ${totals.acc}%</span>
+            <span class="right">Score ${s.score} • ${totals.accAnswered}%</span>
           </summary>
           <div class="small" style="margin-top:8px;">
             Tables 1→${s.maxTable} • Progressif: ${s.adaptive ? 'Oui' : 'Non'} • Durée: ${durationStr}<br>
-            Répondu: ${totals.asked} • ✅ ${totals.correct} • ❌ ${totals.wrong} • Temps moyen: ${totals.avgSec ? totals.avgSec.toFixed(1)+'s' : '-'}<br>
-            Meilleure série: ${s.bestStreak}
+            Questions: ${totals.asked} • ✅ ${totals.correct} • ❌ ${totals.wrong} • ⏭️ ${totals.skipped}<br>
+            Meilleure série: ${s.bestStreak || 0} • Bonus séries: ${s.bonusCount || 0}
           </div>
 
           <div id="${tableDivId}"></div>
@@ -712,100 +900,77 @@
       `;
     }).join('');
 
-    // Fill each session's table
     const arr2 = loadHistory();
     for (const s of arr2) {
       const div = document.getElementById(`hist_table_${s.id}`);
-      if (div) renderStatsTable(div, s.tableStats, s.maxTable);
+      if (div) renderStatsTable(div, s.tableStats || {}, s.maxTable || 10);
     }
 
-    // Bind delete buttons
     Array.from(historyList.querySelectorAll('button[data-del]')).forEach(btn => {
       btn.onclick = () => deleteSession(Number(btn.getAttribute('data-del')));
     });
   }
 
-  // --- Finish / save session
-  function finish(stoppedByUser) {
-    clearTimer();
-
-    const endedAt = Date.now();
-    const durationSec = sessionStartTs ? Math.round((endedAt - sessionStartTs)/1000) : 0;
-
-    // Summary for end screen
-    const totals = computeTotals(tableStats);
-    const modeLabel = cfg.gameMode === 'infinite'
-      ? (stoppedByUser ? "Mode infini (arrêt manuel)" : "Mode infini")
-      : "Série";
-
-    summary.innerHTML = `
-      <div class="pill">Mode : <b>${modeLabel}</b></div><br/>
-      <div class="pill">Score final : <b>${score}</b></div><br/>
-      <div class="pill">Bonnes réponses : <b>${correctCount}</b> / ${totals.asked} (${totals.acc}%)</div><br/>
-      <div class="pill">Meilleure série : <b>${bestStreak}</b></div><br/>
-      <div class="small">Multiplicateurs ≤ 12 • Tables 1→${cfg.maxTable} • Difficulté progressive : ${cfg.adaptive ? 'Oui' : 'Non'}</div>
-    `;
-
-    // Best score only for finite (tu peux changer si tu veux)
-    const best = Number(localStorage.getItem(BEST_KEY) || 0);
-    if (cfg.gameMode === 'finite' && score > best) localStorage.setItem(BEST_KEY, String(score));
-    showBest();
-
-    // Save to history
-    const session = {
-      id: endedAt, // unique enough
-      endedAt,
-      durationSec,
-      gameMode: cfg.gameMode,
-      totalQuestions: cfg.totalQuestions,
-      stoppedByUser: !!stoppedByUser,
-      maxTable: cfg.maxTable,
-      adaptive: cfg.adaptive,
-      score,
-      bestStreak,
-      correctCount,
-      tableStats: snapshotTableStats(cfg.maxTable)
-    };
-    addSessionToHistory(session);
-
-    // Render per-table stats on end screen
-    renderStatsTable(statsTable, tableStats, cfg.maxTable);
-
-    showOnly(end);
-  }
-
-  // --- Start / navigation
+  // --------- Start game
   function startGame() {
     cfg = {
-      gameMode: gameModeEl.value,                           // 'finite' | 'infinite'
+      gameMode: gameModeEl.value,                           // 'classic' | 'challenge'
       totalQuestions: clampInt(questionCountEl.value, 5, 200, 20),
       maxTable: Number(maxTableEl.value),                   // 10 | 20
       adaptive: (adaptiveEl.value === 'on')
     };
 
-    // Reset session
-    qIndex = 1;
+    // reset
+    qIndex = (cfg.gameMode === 'challenge') ? 0 : 1;
     score = 0;
     streak = 0;
+    bonusCount = 0;
     correctCount = 0;
+    askedCount = 0;
     bestStreak = 0;
-    historyPairs = [];
-    recentResults = [];
+
     diffTier = cfg.adaptive ? 1 : 3;
+    recentResults = [];
+    historyPairs = [];
 
     ensureTableStats(cfg.maxTable);
 
     qIndexEl.textContent = qIndex;
-    qTotalEl.textContent = (cfg.gameMode === 'finite') ? cfg.totalQuestions : '∞';
+    qTotalEl.textContent = (cfg.gameMode === 'classic') ? cfg.totalQuestions : '∞';
     updateHUD();
 
-    stopBtn.classList.toggle('hidden', cfg.gameMode !== 'infinite');
+    // UI per mode
+    nextBtn.classList.remove('hidden');
+    nextBtn.disabled = true;
+
+    stopBtn.classList.remove('hidden');
+    stopBtn.textContent = (cfg.gameMode === 'challenge') ? 'Arrêter le challenge' : 'Arrêter';
+    stopBtn.onclick = () => {
+      const saveBest = (cfg.gameMode === 'classic');
+      finish(true, saveBest);
+    };
 
     sessionStartTs = Date.now();
 
     showOnly(game);
     generateQuestion();
-    setPhaseChoose();
+
+    if (cfg.gameMode === 'classic') {
+      phaseTitle.textContent = '';
+      // show time as seconds for classic
+      setTimeLabelClassic(CHOOSE_SECONDS);
+      // next button used
+      nextBtn.classList.remove('hidden');
+      // stop button should exist but doesn't end automatically
+      // skip in classic becomes "Passer" = 0
+      skipBtn.textContent = "Passer";
+      setPhaseChooseClassic();
+    } else {
+      // challenge
+      startChallengeTimer();
+      skipBtn.textContent = "Passer";
+      showChallengeQuestion();
+    }
   }
 
   function goSetup() {
@@ -818,12 +983,11 @@
     showOnly(historyScreen);
   }
 
-  // --- Events
+  // --------- Events
   startBtn.onclick = startGame;
-  nextBtn.onclick = nextQuestion;
 
-  chooseInputBtn.onclick = () => setModeAndAsk('input');
-  chooseMcqBtn.onclick = () => setModeAndAsk('mcq');
+  chooseInputBtn.onclick = () => setModeAndAskClassic('input');
+  chooseMcqBtn.onclick = () => setModeAndAskClassic('mcq');
 
   validateBtn.onclick = () => {
     const v = answerInput.value.trim();
@@ -832,16 +996,28 @@
       feedback.innerHTML = `<span class="ko">Entre un nombre 🙂</span>`;
       return;
     }
-    submitAnswer(n, false);
+    if (cfg.gameMode === 'classic') {
+      submitClassic(n, false, false);
+    } else {
+      submitChallenge(n, false);
+    }
   };
 
   answerInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') validateBtn.click();
   });
 
-  skipBtn.onclick = () => submitAnswer(null, false);
+  skipBtn.onclick = () => {
+    if (cfg.gameMode === 'classic') {
+      submitClassic(null, false, true);
+    } else {
+      submitChallenge(null, true);
+    }
+  };
 
-  stopBtn.onclick = () => finish(true);
+  nextBtn.onclick = () => {
+    if (cfg.gameMode === 'classic') nextClassic();
+  };
 
   quitBtn.onclick = goSetup;
 
@@ -865,11 +1041,11 @@
   };
 
   gameModeEl.addEventListener('change', () => {
-    qcBox.classList.toggle('hidden', gameModeEl.value === 'infinite');
+    qcBox.classList.toggle('hidden', gameModeEl.value === 'challenge');
   });
 
   // Init
-  qcBox.classList.toggle('hidden', gameModeEl.value === 'infinite');
+  qcBox.classList.toggle('hidden', gameModeEl.value === 'challenge');
   showBest();
 })();
 </script>
